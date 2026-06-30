@@ -919,12 +919,15 @@ load_kernel_module(void)
 
     for (int i = 0; modprobe_paths[i]; i++) {
         if (g_file_test(modprobe_paths[i], G_FILE_TEST_EXISTS)) {
-            if (g_spawn_command_line_sync("modprobe amneziawg", &output, &error_output, &exit_status, &error)) {
+            gchar *command = g_strdup_printf("%s amneziawg", modprobe_paths[i]);
+
+            if (g_spawn_command_line_sync(command, &output, &error_output, &exit_status, &error)) {
                 g_usleep(500000);
                 if (g_file_test("/sys/module/amneziawg", G_FILE_TEST_EXISTS)) {
                     found = TRUE;
                 }
             }
+            g_free(command);
             break;
         }
     }
