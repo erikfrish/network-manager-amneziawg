@@ -82,7 +82,9 @@ add_ip_address(const gchar *ifname, const gchar *ip_with_prefix, int family)
     } req;
     int sock;
     struct sockaddr_nl addr;
-    char *prefix_str;
+    g_autofree gchar *ip_copy = NULL;
+    gchar *prefix_str;
+    gchar *ip_str;
     guint prefix;
 
     sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
@@ -112,7 +114,9 @@ add_ip_address(const gchar *ifname, const gchar *ip_with_prefix, int family)
     req.ifa.ifa_scope = RT_SCOPE_UNIVERSE;
     req.ifa.ifa_index = if_nametoindex(ifname);
 
-    prefix_str = strchr(ip_with_prefix, '/');
+    ip_copy = g_strdup(ip_with_prefix);
+    ip_str = ip_copy;
+    prefix_str = strchr(ip_copy, '/');
     if (prefix_str) {
         *prefix_str = '\0';
         prefix = atoi(prefix_str + 1);
@@ -123,7 +127,7 @@ add_ip_address(const gchar *ifname, const gchar *ip_with_prefix, int family)
 
     if (family == AF_INET) {
         struct in_addr addr_ipv4;
-        if (inet_pton(AF_INET, ip_with_prefix, &addr_ipv4) > 0) {
+        if (inet_pton(AF_INET, ip_str, &addr_ipv4) > 0) {
             struct rtattr *rta = (struct rtattr *)((char *)&req.ifa + NLMSG_ALIGN(sizeof(req.ifa)));
             rta->rta_type = IFA_LOCAL;
             rta->rta_len = RTA_LENGTH(sizeof(addr_ipv4));
@@ -137,13 +141,11 @@ add_ip_address(const gchar *ifname, const gchar *ip_with_prefix, int family)
             req.nlh.nlmsg_len += RTA_ALIGN(rta->rta_len);
         } else {
             close(sock);
-            if (prefix_str)
-                *prefix_str = '/';
             return FALSE;
         }
     } else {
         struct in6_addr addr_ipv6;
-        if (inet_pton(AF_INET6, ip_with_prefix, &addr_ipv6) > 0) {
+        if (inet_pton(AF_INET6, ip_str, &addr_ipv6) > 0) {
             struct rtattr *rta = (struct rtattr *)((char *)&req.ifa + NLMSG_ALIGN(sizeof(req.ifa)));
             rta->rta_type = IFA_LOCAL;
             rta->rta_len = RTA_LENGTH(sizeof(addr_ipv6));
@@ -157,14 +159,9 @@ add_ip_address(const gchar *ifname, const gchar *ip_with_prefix, int family)
             req.nlh.nlmsg_len += RTA_ALIGN(rta->rta_len);
         } else {
             close(sock);
-            if (prefix_str)
-                *prefix_str = '/';
             return FALSE;
         }
     }
-
-    if (prefix_str)
-        *prefix_str = '/';
 
     if (req.nlh.nlmsg_len > sizeof(req)) {
         close(sock);
