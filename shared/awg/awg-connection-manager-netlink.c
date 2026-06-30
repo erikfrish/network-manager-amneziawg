@@ -462,7 +462,8 @@ gboolean
 awg_connection_manager_netlink_add_routes(AWGConnectionManager *mgr, int family, GError **error)
 {
     if (!add_routes_for_allowed_ips(mgr, family)) {
-        g_set_error(error, AWG_CONNECTION_MANAGER_NETLINK_ERROR, errno,
+        int saved_errno = errno;
+        g_set_error(error, AWG_CONNECTION_MANAGER_NETLINK_ERROR, saved_errno,
                     "Failed to add routes for %s",
                     AWG_CONNECTION_MANAGER_NETLINK(mgr) != NULL
                         ? AWG_CONNECTION_MANAGER_NETLINK_GET_PRIVATE(
@@ -478,7 +479,8 @@ gboolean
 awg_connection_manager_netlink_delete_routes(AWGConnectionManager *mgr, int family, GError **error)
 {
     if (!delete_routes_for_allowed_ips(mgr, family)) {
-        g_set_error(error, AWG_CONNECTION_MANAGER_NETLINK_ERROR, errno,
+        int saved_errno = errno;
+        g_set_error(error, AWG_CONNECTION_MANAGER_NETLINK_ERROR, saved_errno,
                     "Failed to delete routes for %s",
                     AWG_CONNECTION_MANAGER_NETLINK(mgr) != NULL
                         ? AWG_CONNECTION_MANAGER_NETLINK_GET_PRIVATE(
