@@ -559,47 +559,47 @@ awg_connection_manager_netlink_connect(AWGConnectionManager *mgr, GError **error
 
     const gchar *h1 = awg_device_get_h1(priv->device);
     if (h1 && h1[0]) {
-        dev->init_packet_magic_header = g_strdup(h1);
+        dev->init_packet_magic_header = strdup(h1);
         dev->flags |= WGDEVICE_HAS_H1;
     }
     const gchar *h2 = awg_device_get_h2(priv->device);
     if (h2 && h2[0]) {
-        dev->response_packet_magic_header = g_strdup(h2);
+        dev->response_packet_magic_header = strdup(h2);
         dev->flags |= WGDEVICE_HAS_H2;
     }
     const gchar *h3 = awg_device_get_h3(priv->device);
     if (h3 && h3[0]) {
-        dev->underload_packet_magic_header = g_strdup(h3);
+        dev->underload_packet_magic_header = strdup(h3);
         dev->flags |= WGDEVICE_HAS_H3;
     }
     const gchar *h4 = awg_device_get_h4(priv->device);
     if (h4 && h4[0]) {
-        dev->transport_packet_magic_header = g_strdup(h4);
+        dev->transport_packet_magic_header = strdup(h4);
         dev->flags |= WGDEVICE_HAS_H4;
     }
     const gchar *i1 = awg_device_get_i1(priv->device);
     if (i1 && i1[0]) {
-        dev->i1 = g_strdup(i1);
+        dev->i1 = strdup(i1);
         dev->flags |= WGDEVICE_HAS_I1;
     }
     const gchar *i2 = awg_device_get_i2(priv->device);
     if (i2 && i2[0]) {
-        dev->i2 = g_strdup(i2);
+        dev->i2 = strdup(i2);
         dev->flags |= WGDEVICE_HAS_I2;
     }
     const gchar *i3 = awg_device_get_i3(priv->device);
     if (i3 && i3[0]) {
-        dev->i3 = g_strdup(i3);
+        dev->i3 = strdup(i3);
         dev->flags |= WGDEVICE_HAS_I3;
     }
     const gchar *i4 = awg_device_get_i4(priv->device);
     if (i4 && i4[0]) {
-        dev->i4 = g_strdup(i4);
+        dev->i4 = strdup(i4);
         dev->flags |= WGDEVICE_HAS_I4;
     }
     const gchar *i5 = awg_device_get_i5(priv->device);
     if (i5 && i5[0]) {
-        dev->i5 = g_strdup(i5);
+        dev->i5 = strdup(i5);
         dev->flags |= WGDEVICE_HAS_I5;
     }
 
