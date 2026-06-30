@@ -113,6 +113,10 @@ add_ip_address(const gchar *ifname, const gchar *ip_with_prefix, int family)
     req.ifa.ifa_flags = IFA_F_PERMANENT;
     req.ifa.ifa_scope = RT_SCOPE_UNIVERSE;
     req.ifa.ifa_index = if_nametoindex(ifname);
+    if (req.ifa.ifa_index == 0) {
+        close(sock);
+        return FALSE;
+    }
 
     ip_copy = g_strdup(ip_with_prefix);
     ip_str = ip_copy;
@@ -213,6 +217,10 @@ set_interface_up(const gchar *ifname, gboolean up)
     req.ifi.ifi_family = AF_UNSPEC;
     req.ifi.ifi_type = 0;
     req.ifi.ifi_index = if_nametoindex(ifname);
+    if (req.ifi.ifi_index == 0) {
+        close(sock);
+        return FALSE;
+    }
     req.ifi.ifi_flags = up ? IFF_UP : 0;
     req.ifi.ifi_change = IFF_UP;
 
@@ -264,6 +272,10 @@ set_interface_mtu(const gchar *ifname, guint32 mtu)
 
     req.ifi.ifi_family = AF_UNSPEC;
     req.ifi.ifi_index = if_nametoindex(ifname);
+    if (req.ifi.ifi_index == 0) {
+        close(sock);
+        return FALSE;
+    }
     req.ifi.ifi_flags = 0;
     req.ifi.ifi_change = 0;
 
@@ -368,6 +380,10 @@ manage_route(const gchar *ifname, const gchar *destination, int family, gboolean
     rta->rta_type = RTA_OIF;
     rta->rta_len = RTA_LENGTH(sizeof(int));
     int ifindex = if_nametoindex(ifname);
+    if (ifindex == 0) {
+        close(sock);
+        return FALSE;
+    }
     memcpy(RTA_DATA(rta), &ifindex, sizeof(ifindex));
     req.nlh.nlmsg_len += RTA_ALIGN(rta->rta_len);
 
