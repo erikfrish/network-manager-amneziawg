@@ -685,20 +685,26 @@ awg_connection_manager_netlink_connect(AWGConnectionManager *mgr, GError **error
 
                 wg_allowedip *allowedip = calloc(1, sizeof(wg_allowedip));
                 if (allowedip) {
+                    gboolean parse_ok;
                     allowedip->family = is_ipv6 ? AF_INET6 : AF_INET;
                     allowedip->cidr = cidr;
                     if (is_ipv6) {
-                        inet_pton(AF_INET6, ip_str, &allowedip->ip6);
+                        parse_ok = inet_pton(AF_INET6, ip_str, &allowedip->ip6) > 0;
                     } else {
-                        inet_pton(AF_INET, ip_str, &allowedip->ip4);
+                        parse_ok = inet_pton(AF_INET, ip_str, &allowedip->ip4) > 0;
                     }
 
-                    if (!new_peer->first_allowedip) {
-                        new_peer->first_allowedip = allowedip;
-                        new_peer->last_allowedip = allowedip;
+                    if (parse_ok) {
+                        if (!new_peer->first_allowedip) {
+                            new_peer->first_allowedip = allowedip;
+                            new_peer->last_allowedip = allowedip;
+                        } else {
+                            new_peer->last_allowedip->next_allowedip = allowedip;
+                            new_peer->last_allowedip = allowedip;
+                        }
                     } else {
-                        new_peer->last_allowedip->next_allowedip = allowedip;
-                        new_peer->last_allowedip = allowedip;
+                        g_warning("Failed to parse allowed IP: %s", ip_str);
+                        free(allowedip);
                     }
                 }
             }
