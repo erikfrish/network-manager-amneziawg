@@ -82,7 +82,9 @@ add_ip_address(const gchar *ifname, const gchar *ip_with_prefix, int family)
     } req;
     int sock;
     struct sockaddr_nl addr;
-    char *prefix_str;
+    g_autofree gchar *ip_copy = NULL;
+    gchar *prefix_str;
+    gchar *ip_str;
     guint prefix;
 
     sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
@@ -111,8 +113,14 @@ add_ip_address(const gchar *ifname, const gchar *ip_with_prefix, int family)
     req.ifa.ifa_flags = IFA_F_PERMANENT;
     req.ifa.ifa_scope = RT_SCOPE_UNIVERSE;
     req.ifa.ifa_index = if_nametoindex(ifname);
+    if (req.ifa.ifa_index == 0) {
+        close(sock);
+        return FALSE;
+    }
 
-    prefix_str = strchr(ip_with_prefix, '/');
+    ip_copy = g_strdup(ip_with_prefix);
+    ip_str = ip_copy;
+    prefix_str = strchr(ip_copy, '/');
     if (prefix_str) {
         *prefix_str = '\0';
         prefix = atoi(prefix_str + 1);
@@ -123,7 +131,7 @@ add_ip_address(const gchar *ifname, const gchar *ip_with_prefix, int family)
 
     if (family == AF_INET) {
         struct in_addr addr_ipv4;
-        if (inet_pton(AF_INET, ip_with_prefix, &addr_ipv4) > 0) {
+        if (inet_pton(AF_INET, ip_str, &addr_ipv4) > 0) {
             struct rtattr *rta = (struct rtattr *)((char *)&req.ifa + NLMSG_ALIGN(sizeof(req.ifa)));
             rta->rta_type = IFA_LOCAL;
             rta->rta_len = RTA_LENGTH(sizeof(addr_ipv4));
@@ -137,13 +145,11 @@ add_ip_address(const gchar *ifname, const gchar *ip_with_prefix, int family)
             req.nlh.nlmsg_len += RTA_ALIGN(rta->rta_len);
         } else {
             close(sock);
-            if (prefix_str)
-                *prefix_str = '/';
             return FALSE;
         }
     } else {
         struct in6_addr addr_ipv6;
-        if (inet_pton(AF_INET6, ip_with_prefix, &addr_ipv6) > 0) {
+        if (inet_pton(AF_INET6, ip_str, &addr_ipv6) > 0) {
             struct rtattr *rta = (struct rtattr *)((char *)&req.ifa + NLMSG_ALIGN(sizeof(req.ifa)));
             rta->rta_type = IFA_LOCAL;
             rta->rta_len = RTA_LENGTH(sizeof(addr_ipv6));
@@ -157,14 +163,9 @@ add_ip_address(const gchar *ifname, const gchar *ip_with_prefix, int family)
             req.nlh.nlmsg_len += RTA_ALIGN(rta->rta_len);
         } else {
             close(sock);
-            if (prefix_str)
-                *prefix_str = '/';
             return FALSE;
         }
     }
-
-    if (prefix_str)
-        *prefix_str = '/';
 
     if (req.nlh.nlmsg_len > sizeof(req)) {
         close(sock);
@@ -216,6 +217,10 @@ set_interface_up(const gchar *ifname, gboolean up)
     req.ifi.ifi_family = AF_UNSPEC;
     req.ifi.ifi_type = 0;
     req.ifi.ifi_index = if_nametoindex(ifname);
+    if (req.ifi.ifi_index == 0) {
+        close(sock);
+        return FALSE;
+    }
     req.ifi.ifi_flags = up ? IFF_UP : 0;
     req.ifi.ifi_change = IFF_UP;
 
@@ -267,6 +272,10 @@ set_interface_mtu(const gchar *ifname, guint32 mtu)
 
     req.ifi.ifi_family = AF_UNSPEC;
     req.ifi.ifi_index = if_nametoindex(ifname);
+    if (req.ifi.ifi_index == 0) {
+        close(sock);
+        return FALSE;
+    }
     req.ifi.ifi_flags = 0;
     req.ifi.ifi_change = 0;
 
@@ -371,6 +380,10 @@ manage_route(const gchar *ifname, const gchar *destination, int family, gboolean
     rta->rta_type = RTA_OIF;
     rta->rta_len = RTA_LENGTH(sizeof(int));
     int ifindex = if_nametoindex(ifname);
+    if (ifindex == 0) {
+        close(sock);
+        return FALSE;
+    }
     memcpy(RTA_DATA(rta), &ifindex, sizeof(ifindex));
     req.nlh.nlmsg_len += RTA_ALIGN(rta->rta_len);
 
@@ -449,7 +462,8 @@ gboolean
 awg_connection_manager_netlink_add_routes(AWGConnectionManager *mgr, int family, GError **error)
 {
     if (!add_routes_for_allowed_ips(mgr, family)) {
-        g_set_error(error, AWG_CONNECTION_MANAGER_NETLINK_ERROR, errno,
+        int saved_errno = errno;
+        g_set_error(error, AWG_CONNECTION_MANAGER_NETLINK_ERROR, saved_errno,
                     "Failed to add routes for %s",
                     AWG_CONNECTION_MANAGER_NETLINK(mgr) != NULL
                         ? AWG_CONNECTION_MANAGER_NETLINK_GET_PRIVATE(
@@ -465,7 +479,8 @@ gboolean
 awg_connection_manager_netlink_delete_routes(AWGConnectionManager *mgr, int family, GError **error)
 {
     if (!delete_routes_for_allowed_ips(mgr, family)) {
-        g_set_error(error, AWG_CONNECTION_MANAGER_NETLINK_ERROR, errno,
+        int saved_errno = errno;
+        g_set_error(error, AWG_CONNECTION_MANAGER_NETLINK_ERROR, saved_errno,
                     "Failed to delete routes for %s",
                     AWG_CONNECTION_MANAGER_NETLINK(mgr) != NULL
                         ? AWG_CONNECTION_MANAGER_NETLINK_GET_PRIVATE(
@@ -562,47 +577,47 @@ awg_connection_manager_netlink_connect(AWGConnectionManager *mgr, GError **error
 
     const gchar *h1 = awg_device_get_h1(priv->device);
     if (h1 && h1[0]) {
-        dev->init_packet_magic_header = g_strdup(h1);
+        dev->init_packet_magic_header = strdup(h1);
         dev->flags |= WGDEVICE_HAS_H1;
     }
     const gchar *h2 = awg_device_get_h2(priv->device);
     if (h2 && h2[0]) {
-        dev->response_packet_magic_header = g_strdup(h2);
+        dev->response_packet_magic_header = strdup(h2);
         dev->flags |= WGDEVICE_HAS_H2;
     }
     const gchar *h3 = awg_device_get_h3(priv->device);
     if (h3 && h3[0]) {
-        dev->underload_packet_magic_header = g_strdup(h3);
+        dev->underload_packet_magic_header = strdup(h3);
         dev->flags |= WGDEVICE_HAS_H3;
     }
     const gchar *h4 = awg_device_get_h4(priv->device);
     if (h4 && h4[0]) {
-        dev->transport_packet_magic_header = g_strdup(h4);
+        dev->transport_packet_magic_header = strdup(h4);
         dev->flags |= WGDEVICE_HAS_H4;
     }
     const gchar *i1 = awg_device_get_i1(priv->device);
     if (i1 && i1[0]) {
-        dev->i1 = g_strdup(i1);
+        dev->i1 = strdup(i1);
         dev->flags |= WGDEVICE_HAS_I1;
     }
     const gchar *i2 = awg_device_get_i2(priv->device);
     if (i2 && i2[0]) {
-        dev->i2 = g_strdup(i2);
+        dev->i2 = strdup(i2);
         dev->flags |= WGDEVICE_HAS_I2;
     }
     const gchar *i3 = awg_device_get_i3(priv->device);
     if (i3 && i3[0]) {
-        dev->i3 = g_strdup(i3);
+        dev->i3 = strdup(i3);
         dev->flags |= WGDEVICE_HAS_I3;
     }
     const gchar *i4 = awg_device_get_i4(priv->device);
     if (i4 && i4[0]) {
-        dev->i4 = g_strdup(i4);
+        dev->i4 = strdup(i4);
         dev->flags |= WGDEVICE_HAS_I4;
     }
     const gchar *i5 = awg_device_get_i5(priv->device);
     if (i5 && i5[0]) {
-        dev->i5 = g_strdup(i5);
+        dev->i5 = strdup(i5);
         dev->flags |= WGDEVICE_HAS_I5;
     }
 
@@ -688,20 +703,26 @@ awg_connection_manager_netlink_connect(AWGConnectionManager *mgr, GError **error
 
                 wg_allowedip *allowedip = calloc(1, sizeof(wg_allowedip));
                 if (allowedip) {
+                    gboolean parse_ok;
                     allowedip->family = is_ipv6 ? AF_INET6 : AF_INET;
                     allowedip->cidr = cidr;
                     if (is_ipv6) {
-                        inet_pton(AF_INET6, ip_str, &allowedip->ip6);
+                        parse_ok = inet_pton(AF_INET6, ip_str, &allowedip->ip6) > 0;
                     } else {
-                        inet_pton(AF_INET, ip_str, &allowedip->ip4);
+                        parse_ok = inet_pton(AF_INET, ip_str, &allowedip->ip4) > 0;
                     }
 
-                    if (!new_peer->first_allowedip) {
-                        new_peer->first_allowedip = allowedip;
-                        new_peer->last_allowedip = allowedip;
+                    if (parse_ok) {
+                        if (!new_peer->first_allowedip) {
+                            new_peer->first_allowedip = allowedip;
+                            new_peer->last_allowedip = allowedip;
+                        } else {
+                            new_peer->last_allowedip->next_allowedip = allowedip;
+                            new_peer->last_allowedip = allowedip;
+                        }
                     } else {
-                        new_peer->last_allowedip->next_allowedip = allowedip;
-                        new_peer->last_allowedip = allowedip;
+                        g_warning("Failed to parse allowed IP: %s", ip_str);
+                        free(allowedip);
                     }
                 }
             }
@@ -739,14 +760,22 @@ awg_connection_manager_netlink_connect(AWGConnectionManager *mgr, GError **error
         if (addr_v4) {
             g_autofree gchar *addr_str = g_inet_address_to_string((GInetAddress *)addr_v4);
             g_autofree gchar *addr_with_prefix = g_strdup_printf("%s/32", addr_str);
-            add_ip_address(ifname, addr_with_prefix, AF_INET);
+            if (!add_ip_address(ifname, addr_with_prefix, AF_INET)) {
+                g_set_error(error, AWG_CONNECTION_MANAGER_NETLINK_ERROR, errno,
+                            "Failed to add IPv4 address for %s", ifname);
+                goto cleanup;
+            }
         }
 
         const GInetAddress *addr_v6 = awg_device_get_address_v6(priv->device);
         if (addr_v6) {
             g_autofree gchar *addr_str = g_inet_address_to_string((GInetAddress *)addr_v6);
             g_autofree gchar *addr_with_prefix = g_strdup_printf("%s/128", addr_str);
-            add_ip_address(ifname, addr_with_prefix, AF_INET6);
+            if (!add_ip_address(ifname, addr_with_prefix, AF_INET6)) {
+                g_set_error(error, AWG_CONNECTION_MANAGER_NETLINK_ERROR, errno,
+                            "Failed to add IPv6 address for %s", ifname);
+                goto cleanup;
+            }
         }
     }
 
@@ -919,12 +948,15 @@ load_kernel_module(void)
 
     for (int i = 0; modprobe_paths[i]; i++) {
         if (g_file_test(modprobe_paths[i], G_FILE_TEST_EXISTS)) {
-            if (g_spawn_command_line_sync("modprobe amneziawg", &output, &error_output, &exit_status, &error)) {
+            gchar *command = g_strdup_printf("%s amneziawg", modprobe_paths[i]);
+
+            if (g_spawn_command_line_sync(command, &output, &error_output, &exit_status, &error)) {
                 g_usleep(500000);
                 if (g_file_test("/sys/module/amneziawg", G_FILE_TEST_EXISTS)) {
                     found = TRUE;
                 }
             }
+            g_free(command);
             break;
         }
     }
