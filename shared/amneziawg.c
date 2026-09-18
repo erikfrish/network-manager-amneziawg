@@ -101,6 +101,15 @@ enum wgdevice_attribute {
     WGDEVICE_A_I3,
     WGDEVICE_A_I4,
     WGDEVICE_A_I5,
+    WGDEVICE_A_HEADER_PROTECTION_KEY,
+    WGDEVICE_A_CONTENT_PADDING_ADDITION,
+    WGDEVICE_A_REKEY_AFTER_TIME,
+    WGDEVICE_A_REKEY_TIMEOUT,
+    WGDEVICE_A_REJECT_AFTER_TIME,
+    WGDEVICE_A_KEEPALIVE_TIMEOUT,
+    WGDEVICE_A_MAX_HANDSHAKE_ATTEMPTS,
+    WGDEVICE_A_RANDOM_TRAILERS,
+    WGDEVICE_A_DISABLE_COOKIES,
     __WGDEVICE_A_LAST
 };
 
@@ -523,6 +532,12 @@ static bool
 mnl_attr_put_u8_check(struct nlmsghdr *nlh, size_t buflen, uint16_t type, uint8_t data)
 {
     return mnl_attr_put_check(nlh, buflen, type, sizeof(uint8_t), &data);
+}
+
+static void
+mnl_attr_put_u8(struct nlmsghdr *nlh, uint16_t type, uint8_t data)
+{
+    mnl_attr_put(nlh, type, sizeof(uint8_t), &data);
 }
 
 static bool
@@ -1250,6 +1265,24 @@ again:
             mnl_attr_put_strz(nlh, WGDEVICE_A_I4, dev->i4);
         if (dev->flags & WGDEVICE_HAS_I5 && dev->i5)
             mnl_attr_put_strz(nlh, WGDEVICE_A_I5, dev->i5);
+        if (dev->flags & WGDEVICE_HAS_HEADER_PROTECTION_KEY)
+            mnl_attr_put(nlh, WGDEVICE_A_HEADER_PROTECTION_KEY, sizeof(dev->header_protection_key), dev->header_protection_key);
+        if (dev->flags & WGDEVICE_HAS_CONTENT_PADDING_ADDITION)
+            mnl_attr_put_u32(nlh, WGDEVICE_A_CONTENT_PADDING_ADDITION, dev->content_padding_addition);
+        if (dev->flags & WGDEVICE_HAS_REKEY_AFTER_TIME)
+            mnl_attr_put_u32(nlh, WGDEVICE_A_REKEY_AFTER_TIME, dev->rekey_after_time);
+        if (dev->flags & WGDEVICE_HAS_REKEY_TIMEOUT)
+            mnl_attr_put_u32(nlh, WGDEVICE_A_REKEY_TIMEOUT, dev->rekey_timeout);
+        if (dev->flags & WGDEVICE_HAS_REJECT_AFTER_TIME)
+            mnl_attr_put_u32(nlh, WGDEVICE_A_REJECT_AFTER_TIME, dev->reject_after_time);
+        if (dev->flags & WGDEVICE_HAS_KEEPALIVE_TIMEOUT)
+            mnl_attr_put_u32(nlh, WGDEVICE_A_KEEPALIVE_TIMEOUT, dev->keepalive_timeout);
+        if (dev->flags & WGDEVICE_HAS_MAX_HANDSHAKE_ATTEMPTS)
+            mnl_attr_put_u32(nlh, WGDEVICE_A_MAX_HANDSHAKE_ATTEMPTS, dev->max_handshake_attempts);
+        if (dev->flags & WGDEVICE_HAS_RANDOM_TRAILERS)
+            mnl_attr_put_u8(nlh, WGDEVICE_A_RANDOM_TRAILERS, dev->random_trailers);
+        if (dev->flags & WGDEVICE_HAS_DISABLE_COOKIES)
+            mnl_attr_put_u8(nlh, WGDEVICE_A_DISABLE_COOKIES, dev->disable_cookies);
         if (dev->flags & WGDEVICE_REPLACE_PEERS)
             flags |= WGDEVICE_F_REPLACE_PEERS;
         if (flags)

@@ -412,6 +412,40 @@ awg_magic_header_parse(const gchar *str, guint32 *start, guint32 *end)
     }
 }
 
+/* Pack a u16 range ("lo-hi" or single "lo") into a u32 as (hi<<16 | lo),
+ * matching the kernel module's u16_range_t representation. */
+gboolean
+awg_range_parse_u32(const gchar *str, guint32 *out)
+{
+    const gchar *dash;
+    guint64 lo, hi;
+
+    if (!str || !*str)
+        return FALSE;
+
+    dash = strchr(str, '-');
+    if (dash) {
+        gchar *lo_str = g_strndup(str, dash - str);
+        gchar *hi_str = g_strdup(dash + 1);
+        gboolean lo_ok = g_ascii_string_to_unsigned(lo_str, 10, 0, G_MAXUINT16, &lo, NULL);
+        gboolean hi_ok = g_ascii_string_to_unsigned(hi_str, 10, 0, G_MAXUINT16, &hi, NULL);
+
+        g_free(lo_str);
+        g_free(hi_str);
+
+        if (!lo_ok || !hi_ok || lo > hi)
+            return FALSE;
+    } else {
+        gboolean ok = g_ascii_string_to_unsigned(str, 10, 0, G_MAXUINT16, &lo, NULL);
+        if (!ok)
+            return FALSE;
+        hi = lo;
+    }
+
+    *out = (guint32)((hi << 16) | lo);
+    return TRUE;
+}
+
 gboolean
 awg_validate_magic_headers_no_overlap(const gchar *h1, const gchar *h2, const gchar *h3, const gchar *h4)
 {
