@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Major Changes
+
+#### AmneziaWG 3.1 Protocol Support
+- **New 3.1 obfuscation parameters**: `HeaderProtectionKey`, `ContentPaddingAddition`, `RekeyAfterTime`, `RekeyTimeout`, `RejectAfterTime`, `KeepaliveTimeout`, `MaxHandshakeAttempts`, `RandomTrailers` and `DisableCookies` are now parsed from `.conf` files, stored on `AWGDevice`, serialised over `vpn.data` (`connection-*` keys) and passed to both backends. Previously a 3.1 server configuration could not be reproduced by the plugin, so clients were unable to complete a handshake against it
+- **Both backends supported**: the external (`awg-quick`) path writes the parameters back into the generated configuration, and the netlink path sends the matching attributes (32-byte key, u16 ranges packed as `hi<<16 | lo` to match the kernel's `u16_range_t`, u8 flags)
+- **Range validation matches the kernel encoding**: range values are accepted only when they fit the kernel representation, so a value that would be silently dropped on the netlink path is rejected up front. `HeaderProtectionKey` is checked for the exact 32-byte length the kernel requires (`NLA_POLICY_EXACT_LEN`)
+
 ## [0.9.11] - 2026-09-06
 
 ### Major Changes
