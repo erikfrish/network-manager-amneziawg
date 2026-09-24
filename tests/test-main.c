@@ -1715,6 +1715,46 @@ test_external_awg31_requires_new_tools(void)
     rmdir(dir);
 }
 
+static void
+test_peer_shared_key_flags_roundtrip(void)
+{
+    AWGDevice *device = awg_device_new();
+    AWGDevicePeer *peer = awg_device_peer_new();
+    AWGDevice *restored;
+    NMConnection *connection = nm_simple_connection_new();
+    NMSettingVpn *s_vpn;
+    GError *error = NULL;
+
+    g_assert_true(awg_device_set_private_key(device, "IrQF2MOyaXsmiCEE3FUxejKowR0q65O41dHt3bSTj20="));
+    g_assert_true(awg_device_peer_set_public_key(peer, "9rLL/fiLgF39EZnzj1xSwIHrY3G+AIwUtnfDpR2H8uU="));
+    g_assert_true(awg_device_peer_set_endpoint(peer, "192.168.1.1:51820"));
+    g_assert_true(awg_device_peer_set_allowed_ips_from_string(peer, "0.0.0.0/0"));
+    g_assert_true(awg_device_peer_set_shared_key(peer, "2hAJ4eqUN13Ue6DjcLn3MGq6ARllKvI6lzg6Uh62K+w="));
+    awg_device_peer_set_shared_key_flags(peer, NM_SETTING_SECRET_FLAG_NOT_REQUIRED);
+    g_assert_true(awg_device_add_peer(device, peer));
+    g_object_unref(peer);
+
+    g_assert_true(awg_device_save_to_nm_connection(device, connection, &error));
+    g_assert_no_error(error);
+    s_vpn = nm_connection_get_setting_vpn(connection);
+    g_assert_nonnull(s_vpn);
+
+    /* libnm persists the flags of a secret as "<secret-name>-flags". */
+    g_assert_cmpstr(nm_setting_vpn_get_data_item(s_vpn, "peer-0-preshared-key-flags"), ==, "4");
+    g_assert_null(nm_setting_vpn_get_data_item(s_vpn, "peer-0-preshared-key-flags-flags"));
+
+    restored = awg_device_new_from_nm_connection(connection, &error);
+    g_assert_no_error(error);
+    g_assert_nonnull(restored);
+    peer = AWG_DEVICE_PEER(awg_device_get_peers_list(restored)->data);
+    g_assert_nonnull(peer);
+    g_assert_cmpint(awg_device_peer_get_shared_key_flags(peer), ==, NM_SETTING_SECRET_FLAG_NOT_REQUIRED);
+
+    g_object_unref(restored);
+    g_object_unref(connection);
+    g_object_unref(device);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1780,6 +1820,7 @@ main(int argc, char *argv[])
     g_test_add_func("/awg/validate/jmin-jmax", test_awg_validate_jmin_jmax);
     g_test_add_func("/awg/peer/clone-multi-allowed-ips", test_awg_peer_clone_multi_allowed_ips);
     g_test_add_func("/awg/nm-connection/secrets-roundtrip", test_nm_connection_secrets_roundtrip);
+    g_test_add_func("/awg/nm-connection/peer-psk-flags", test_peer_shared_key_flags_roundtrip);
     g_test_add_func("/awg/nm-connection/keyless-config-detected", test_keyless_config_detected);
     g_test_add_func("/awg/device/invalid-reason", test_invalid_reason_messages);
     g_test_add_func("/awg/manager/force-quick-selects-external", test_force_awg_quick_selects_external);
