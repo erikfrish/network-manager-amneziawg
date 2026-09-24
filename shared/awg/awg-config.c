@@ -371,7 +371,7 @@ awg_device_save_to_file(AWGDevice *device, const char *config_path)
     GError *error = NULL;
     gchar *content = NULL;
     GFile *file = g_file_new_for_path(config_path);
-    GOutputStream *output_stream = (GOutputStream *)g_file_replace(file, NULL, FALSE, G_FILE_CREATE_REPLACE_DESTINATION, NULL, &error);
+    GOutputStream *output_stream = (GOutputStream *)g_file_replace(file, NULL, FALSE, G_FILE_CREATE_REPLACE_DESTINATION | G_FILE_CREATE_PRIVATE, NULL, &error);
 
     if (error) {
         g_warning("Failed to open file: %s", error->message);

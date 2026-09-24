@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Bug Fixes
+
+#### Secrets & Config Handling
+- **Create the generated config with private permissions**: the configuration file handed to `awg-quick` (in the system temporary directory) contains the private key and was created with the process umask — `0644` by default — so any local user could read it until the manager `chmod`ed it to `0400`, or permanently if the service died in between. It is now created with `G_FILE_CREATE_PRIVATE` (`0600`) before a single byte is written
+
 ## [0.9.11] - 2026-09-06
 
 ### Major Changes

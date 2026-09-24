@@ -192,6 +192,29 @@ test_awg_device_save_and_load_ipv4(void)
 }
 
 static void
+test_awg_device_save_uses_private_permissions(void)
+{
+    gchar *config_path = get_test_config_path("test-config-extended.conf");
+    gchar *output_path = g_build_filename(g_get_tmp_dir(), "output-private-perms.conf", NULL);
+    AWGDevice *device = awg_device_new_from_config(config_path);
+    struct stat st;
+
+    g_assert_nonnull(device);
+
+    /* The generated configuration carries the private key, so it must never be
+     * readable by anyone else — not even briefly, which is why it is created
+     * with G_FILE_CREATE_PRIVATE instead of being chmod()ed afterwards. */
+    g_assert_true(awg_device_save_to_file(device, output_path));
+    g_assert_cmpint(stat(output_path, &st), ==, 0);
+    g_assert_cmpuint(st.st_mode & 0777, ==, 0600);
+
+    g_object_unref(device);
+    unlink(output_path);
+    g_free(output_path);
+    g_free(config_path);
+}
+
+static void
 test_awg_device_save_and_load_multi_peer(void)
 {
     gchar *config_path = get_test_config_path("test-config-multi-peer.conf");
@@ -1295,6 +1318,7 @@ main(int argc, char *argv[])
     g_test_add_func("/awg/config/dual-stack", test_awg_device_new_from_config_dual_stack);
     g_test_add_func("/awg/config/multi-peer", test_awg_device_new_from_config_multi_peer);
     g_test_add_func("/awg/config/save-load-ipv4", test_awg_device_save_and_load_ipv4);
+    g_test_add_func("/awg/config/save-private-permissions", test_awg_device_save_uses_private_permissions);
     g_test_add_func("/awg/config/save-load-multi-peer", test_awg_device_save_and_load_multi_peer);
     g_test_add_func("/awg/config/mtu-not-exported-when-zero", test_awg_device_mtu_not_exported_when_zero);
     g_test_add_func("/awg/config/mtu-exported-when-set", test_awg_device_mtu_exported_when_set);
