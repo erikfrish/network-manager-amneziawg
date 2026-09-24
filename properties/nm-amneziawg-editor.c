@@ -1487,7 +1487,7 @@ save_interface_to_connection(AmneziaWGEditor *self)
                 nm_setting_vpn_add_secret(s_vpn, key, value);
             g_free(key);
 
-            key = g_strdup_printf(NM_AWG_VPN_CONFIG_PEER_PRESHARED_KEY_FLAGS, i);
+            key = g_strdup_printf(NM_AWG_VPN_CONFIG_PEER_PRESHARED_KEY, i);
             nm_setting_set_secret_flags(NM_SETTING(s_vpn), key,
                                         awg_device_peer_get_shared_key_flags(peer), NULL);
             g_free(key);

@@ -266,7 +266,10 @@ awg_device_save_to_nm_connection(AWGDevice *device, NMConnection *connection, GE
         }
         g_free(key);
 
-        key = g_strdup_printf(NM_AWG_VPN_CONFIG_PEER_PRESHARED_KEY_FLAGS, i);
+        /* The flags are stored by libnm as "<secret-name>-flags": passing the
+         * already suffixed name here wrote "<secret-name>-flags-flags" instead,
+         * which nothing ever read back. */
+        key = g_strdup_printf(NM_AWG_VPN_CONFIG_PEER_PRESHARED_KEY, i);
         nm_setting_set_secret_flags(NM_SETTING(s_vpn),
                                     key,
                                     awg_device_peer_get_shared_key_flags(peer),
@@ -551,12 +554,12 @@ awg_device_new_from_nm_connection(NMConnection *connection, GError **error)
         }
         g_free(key);
 
-        key = g_strdup_printf(NM_AWG_VPN_CONFIG_PEER_PRESHARED_KEY_FLAGS, i);
+        key = g_strdup_printf(NM_AWG_VPN_CONFIG_PEER_PRESHARED_KEY, i);
         {
             NMSettingSecretFlags flags;
-            if (nm_setting_get_secret_flags(NM_SETTING(s_vpn), key, &flags, NULL)) {
+
+            if (nm_setting_get_secret_flags(NM_SETTING(s_vpn), key, &flags, NULL))
                 awg_device_peer_set_shared_key_flags(peer, flags);
-            }
         }
         g_free(key);
 
