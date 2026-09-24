@@ -1433,6 +1433,114 @@ test_awg_nm_connection_awg31_roundtrip(void)
     g_free(config_path);
 }
 
+static void
+test_awg_version_parse(void)
+{
+    guint major = 0;
+    guint minor = 0;
+
+    /* Kernel module releases look like "3.1.20260812". */
+    g_assert_true(awg_version_parse("3.1.20260812", &major, &minor));
+    g_assert_cmpuint(major, ==, 3);
+    g_assert_cmpuint(minor, ==, 1);
+
+    g_assert_true(awg_version_parse("1.0.20260725", &major, &minor));
+    g_assert_cmpuint(major, ==, 1);
+    g_assert_cmpuint(minor, ==, 0);
+
+    /* A missing or empty minor component counts as 0. */
+    g_assert_true(awg_version_parse("3", &major, &minor));
+    g_assert_cmpuint(major, ==, 3);
+    g_assert_cmpuint(minor, ==, 0);
+    g_assert_true(awg_version_parse("3.", &major, &minor));
+    g_assert_cmpuint(major, ==, 3);
+    g_assert_cmpuint(minor, ==, 0);
+
+    /* Trailing noise (build suffix, URL) is ignored. */
+    g_assert_true(awg_version_parse("3.1.20260812-dirty", &major, &minor));
+    g_assert_cmpuint(minor, ==, 1);
+
+    /* The tools banner is accepted as-is. */
+    g_assert_true(awg_version_parse("amneziawg-tools v3.0.20260730 - https://amnezia.org", &major, &minor));
+    g_assert_cmpuint(major, ==, 3);
+    g_assert_cmpuint(minor, ==, 0);
+
+    /* The minor pointer is optional. */
+    g_assert_true(awg_version_parse("4.5", &major, NULL));
+    g_assert_cmpuint(major, ==, 4);
+
+    /* Rejected: no digits at all, empty, NULL, number too large for a guint. */
+    g_assert_false(awg_version_parse("amneziawg", &major, &minor));
+    g_assert_false(awg_version_parse("", &major, &minor));
+    g_assert_false(awg_version_parse(NULL, &major, &minor));
+    g_assert_false(awg_version_parse("99999999999", &major, &minor));
+}
+
+static void
+test_awg_version_at_least(void)
+{
+    /* 3.0 is the first module/tools series with the AWG 3.1 attributes. */
+    g_assert_true(awg_version_at_least("3.0.20260730", 3, 0));
+    g_assert_true(awg_version_at_least("3.1.20260812", 3, 0));
+    g_assert_true(awg_version_at_least("10.0", 3, 0));
+    g_assert_true(awg_version_at_least("amneziawg-tools v3.0.20260730 - https://amnezia.org", 3, 0));
+
+    /* Everything older is rejected. */
+    g_assert_false(awg_version_at_least("1.0.20260725", 3, 0));
+    g_assert_false(awg_version_at_least("2.0.20260101", 3, 0));
+
+    /* Minor components are compared, not only the major one. */
+    g_assert_false(awg_version_at_least("3.1.20260812", 3, 2));
+    g_assert_true(awg_version_at_least("3.2", 3, 2));
+
+    /* Unknown versions are not rejected: the backend reports the failure. */
+    g_assert_true(awg_version_at_least(NULL, 3, 0));
+    g_assert_true(awg_version_at_least("", 3, 0));
+    g_assert_true(awg_version_at_least("unavailable", 3, 0));
+}
+
+static void
+test_awg_device_has_awg31_params(void)
+{
+    gchar *config_path;
+    AWGDevice *device;
+
+    /* A 2.0 configuration carries none of the 3.1 parameters. */
+    config_path = get_test_config_path("test-config-dual.conf");
+    device = awg_device_new_from_config(config_path);
+    g_assert_nonnull(device);
+    g_assert_false(awg_device_has_awg31_params(device));
+    g_object_unref(device);
+    g_free(config_path);
+
+    /* A 3.1 configuration carries all of them. */
+    config_path = get_test_config_path("test-config-awg31.conf");
+    device = awg_device_new_from_config(config_path);
+    g_assert_nonnull(device);
+    g_assert_true(awg_device_has_awg31_params(device));
+    g_object_unref(device);
+    g_free(config_path);
+
+    device = awg_device_new();
+    g_assert_nonnull(device);
+    g_assert_false(awg_device_has_awg31_params(device));
+
+    /* Booleans count only when enabled: "off" is never encoded. */
+    g_assert_true(awg_device_set_random_trailers(device, FALSE));
+    g_assert_true(awg_device_set_disable_cookies(device, FALSE));
+    g_assert_false(awg_device_has_awg31_params(device));
+    g_assert_true(awg_device_set_disable_cookies(device, TRUE));
+    g_assert_true(awg_device_has_awg31_params(device));
+    g_assert_true(awg_device_set_disable_cookies(device, FALSE));
+    g_assert_false(awg_device_has_awg31_params(device));
+
+    /* A single scalar parameter is enough. */
+    g_assert_true(awg_device_set_content_padding_addition(device, "2-10"));
+    g_assert_true(awg_device_has_awg31_params(device));
+
+    g_object_unref(device);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1503,6 +1611,9 @@ main(int argc, char *argv[])
     g_test_add_func("/awg/device/range-setters-reject-over-u16", test_awg_device_range_setters_reject_over_u16);
     g_test_add_func("/awg/config/awg31-roundtrip", test_awg_config_awg31_roundtrip);
     g_test_add_func("/awg/nm-connection/awg31-roundtrip", test_awg_nm_connection_awg31_roundtrip);
+    g_test_add_func("/awg/validate/version-parse", test_awg_version_parse);
+    g_test_add_func("/awg/validate/version-at-least", test_awg_version_at_least);
+    g_test_add_func("/awg/device/has-awg31-params", test_awg_device_has_awg31_params);
 
     return g_test_run();
 }

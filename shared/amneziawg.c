@@ -26,6 +26,24 @@
 #include "amneziawg.h"
 #include "awg/awg-validate.h"
 
+char *
+amneziawg_kernel_version(void)
+{
+    const char *path = "/sys/module/amneziawg/version";
+    char *contents = NULL;
+
+    if (!g_file_get_contents(path, &contents, NULL, NULL))
+        return NULL;
+
+    g_strstrip(contents);
+    if (!*contents) {
+        g_free(contents);
+        return NULL;
+    }
+
+    return contents;
+}
+
 /*
  * Kernel ABI for AmneziaWG changed between versions:
  *  - magic headers (H1..H4) were NUL strings in old kernels and became
@@ -38,25 +56,16 @@
 static bool
 awg_kernel_uses_current_abi(bool *known)
 {
-    const char *path = "/sys/module/amneziawg/version";
-    char buf[64];
-    FILE *f;
-    unsigned major;
+    char *version = amneziawg_kernel_version();
+    unsigned major = 0;
 
-    *known = false;
-    f = fopen(path, "r");
-    if (!f)
-        return true;
-    if (fgets(buf, sizeof(buf), f) == NULL) {
-        fclose(f);
+    *known = version && awg_version_parse(version, &major, NULL);
+    if (!*known) {
+        g_free(version);
         return true;
     }
-    fclose(f);
+    g_free(version);
 
-    if (sscanf(buf, "%u", &major) != 1)
-        return true;
-
-    *known = true;
     return major >= 3;
 }
 

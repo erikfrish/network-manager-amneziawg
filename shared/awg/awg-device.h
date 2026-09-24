@@ -129,6 +129,11 @@ gboolean awg_device_set_random_trailers(AWGDevice *self, gboolean enabled);
 gboolean awg_device_get_disable_cookies(AWGDevice *self);
 gboolean awg_device_set_disable_cookies(AWGDevice *self, gboolean enabled);
 
+/* TRUE when the device carries an AmneziaWG 3.1 obfuscation parameter that the
+ * backends actually apply. A disabled boolean does not count: it is never
+ * encoded, so an old kernel can still carry such a configuration. */
+gboolean awg_device_has_awg31_params(AWGDevice *self);
+
 guint32 awg_device_get_mtu(AWGDevice *self);
 gboolean awg_device_set_mtu(AWGDevice *self, guint32 mtu);
 gboolean awg_device_set_mtu_from_string(AWGDevice *self, const gchar *str);

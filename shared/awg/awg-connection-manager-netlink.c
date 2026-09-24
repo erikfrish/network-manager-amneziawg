@@ -494,6 +494,32 @@ awg_connection_manager_netlink_delete_routes(AWGConnectionManager *mgr, int fami
     return TRUE;
 }
 
+/* AmneziaWG 3.1 obfuscation parameters live in netlink attributes the kernel
+ * knows only since module 3.0. An older module rejects the whole request with
+ * EINVAL ("Unknown attribute type"), which says nothing to the user, so refuse
+ * the connection up front with a version that can be acted on. */
+static gboolean
+check_awg31_support(AWGDevice *device, GError **error)
+{
+    g_autofree gchar *version = NULL;
+
+    if (!awg_device_has_awg31_params(device))
+        return TRUE;
+
+    version = amneziawg_kernel_version();
+    if (awg_version_at_least(version, 3, 0))
+        return TRUE;
+
+    g_set_error(error, AWG_CONNECTION_MANAGER_NETLINK_ERROR, 0,
+                "This connection uses AmneziaWG 3.1 parameters (HeaderProtectionKey, "
+                "ContentPaddingAddition, ...), which need kernel module amneziawg 3.0 or "
+                "newer, but %s is loaded. Upgrade the module, or switch to the awg-quick "
+                "backend with NM_FORCE_AWG_QUICK=1 if amneziawg-tools 3.0 or newer is "
+                "installed",
+                version);
+    return FALSE;
+}
+
 static gboolean
 awg_connection_manager_netlink_connect(AWGConnectionManager *mgr, GCancellable *cancellable, GError **error)
 {
@@ -505,6 +531,9 @@ awg_connection_manager_netlink_connect(AWGConnectionManager *mgr, GCancellable *
     const GList *iter;
     gboolean iface_added = FALSE;
     gboolean success = FALSE;
+
+    if (!check_awg31_support(priv->device, error))
+        return FALSE;
 
     dev = calloc(1, sizeof(wg_device));
     if (!dev) {

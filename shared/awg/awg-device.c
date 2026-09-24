@@ -1784,6 +1784,24 @@ awg_device_set_disable_cookies(AWGDevice *self, gboolean enabled)
     return TRUE;
 }
 
+gboolean
+awg_device_has_awg31_params(AWGDevice *self)
+{
+    AWGDevicePrivate *priv;
+
+    g_return_val_if_fail(AWG_IS_DEVICE(self), FALSE);
+    priv = awg_device_get_instance_private(self);
+
+    return (priv->header_protection_key && *priv->header_protection_key) ||
+           (priv->content_padding_addition && *priv->content_padding_addition) ||
+           (priv->rekey_after_time && *priv->rekey_after_time) ||
+           (priv->rekey_timeout && *priv->rekey_timeout) ||
+           (priv->reject_after_time && *priv->reject_after_time) ||
+           (priv->keepalive_timeout && *priv->keepalive_timeout) ||
+           (priv->max_handshake_attempts && *priv->max_handshake_attempts) ||
+           priv->random_trailers || priv->disable_cookies;
+}
+
 guint32
 awg_device_get_mtu(AWGDevice *self)
 {

@@ -446,6 +446,67 @@ awg_range_parse_u32(const gchar *str, guint32 *out)
     return TRUE;
 }
 
+/* Parse the leading "<major>[.<minor>]" out of a version string. Leading
+ * non-digits are skipped, so both a bare kernel module version
+ * ("3.1.20260812") and a tools banner ("amneziawg-tools v3.0.20260730 -
+ * https://amnezia.org") are accepted. A missing minor component counts as 0. */
+gboolean
+awg_version_parse(const gchar *str, guint *major, guint *minor)
+{
+    guint parsed_major = 0;
+    guint parsed_minor = 0;
+    const gchar *p;
+
+    g_return_val_if_fail(major != NULL, FALSE);
+
+    if (!str)
+        return FALSE;
+
+    for (p = str; *p && !g_ascii_isdigit(*p); p++)
+        ;
+
+    if (!*p)
+        return FALSE;
+
+    for (; g_ascii_isdigit(*p); p++) {
+        if (parsed_major > (G_MAXUINT - 9) / 10)
+            return FALSE;
+        parsed_major = parsed_major * 10 + (guint)(*p - '0');
+    }
+
+    if (*p == '.') {
+        for (p++; g_ascii_isdigit(*p); p++) {
+            if (parsed_minor > (G_MAXUINT - 9) / 10)
+                return FALSE;
+            parsed_minor = parsed_minor * 10 + (guint)(*p - '0');
+        }
+    }
+
+    *major = parsed_major;
+    if (minor)
+        *minor = parsed_minor;
+    return TRUE;
+}
+
+/* TRUE when the version described by "str" is at least "major.minor". An
+ * unknown, missing or unparseable version counts as supported: the caller then
+ * lets the backend report the failure itself, the same way an unreadable kernel
+ * ABI is treated. */
+gboolean
+awg_version_at_least(const gchar *str, guint major, guint minor)
+{
+    guint parsed_major;
+    guint parsed_minor;
+
+    if (!awg_version_parse(str, &parsed_major, &parsed_minor))
+        return TRUE;
+
+    if (parsed_major != major)
+        return parsed_major > major;
+
+    return parsed_minor >= minor;
+}
+
 gboolean
 awg_validate_magic_headers_no_overlap(const gchar *h1, const gchar *h2, const gchar *h3, const gchar *h4)
 {
