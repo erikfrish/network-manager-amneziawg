@@ -948,7 +948,7 @@ test_awg_peer_clone_multi_allowed_ips(void)
 
     // Устанавливаем несколько allowed IPs
     g_assert_true(awg_device_peer_set_allowed_ips_from_string(peer, "10.0.0.0/24, 192.168.0.0/16, 0.0.0.0/0"));
-    
+
     // Проверяем, что все подсети сохранились
     gchar *allowed_ips = awg_device_peer_get_allowed_ips_as_string(peer);
     g_assert_nonnull(allowed_ips);
