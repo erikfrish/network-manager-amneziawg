@@ -6,6 +6,7 @@
 
 #### Secrets & Config Handling
 - **Create the generated config with private permissions**: the configuration file handed to `awg-quick` (in the system temporary directory) contains the private key and was created with the process umask — `0644` by default — so any local user could read it until the manager `chmod`ed it to `0400`, or permanently if the service died in between. It is now created with `G_FILE_CREATE_PRIVATE` (`0600`) before a single byte is written
+- **Editing a saved connection no longer demands the private key again**: NM keeps VPN secrets in its own store and omits them from the connection handed to the editor, so the Private Key field showed up empty and the `PrivateKey` check refused every save — the field turned red on a connection that works. An empty field now means "keep the stored key" for a connection NM already has, and nothing is written, so the stored secret survives; a new connection still requires it. Reading the secret back is not an option: NM answers `GetSecrets` for a VPN connection with `No agents were available for this request`
 - **Report why a configuration was rejected**: `awg_device_new_from_config()` now returns a `GError` (`awg_config_error_quark()`) that names the offending key and value, or explains why the parsed device cannot be used. `nmcli connection import` used to fail with a bare `Failed to parse AmneziaWG config file` and leave the details in the journal; it now says `Invalid value for S1: 999999` or `PrivateKey is missing (check vpn.secrets and secret flags)`
 
 ### Improvements
