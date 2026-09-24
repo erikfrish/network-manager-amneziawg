@@ -13,6 +13,18 @@
 - **The editor says which field it refuses**: the shared field check in `properties/nm-amneziawg-editor.c` never set its `GError` (the condition tested for a missing error instead of an existing one), so a rejected value produced a bare failure with only the red field to look at — the private key check was affected too. The new 3.1 fields ask for the message and report e.g. `ContentPaddingAddition`
 - **Range validation matches the kernel encoding**: range values are accepted only when they fit the kernel representation, so a value that would be silently dropped on the netlink path is rejected up front. `HeaderProtectionKey` is checked for the exact 32-byte length the kernel requires (`NLA_POLICY_EXACT_LEN`)
 
+### Bug Fixes
+
+#### Secrets & Config Handling
+- **Create the generated config with private permissions**: the configuration file handed to `awg-quick` (in the system temporary directory) contains the private key and was created with the process umask — `0644` by default — so any local user could read it until the manager `chmod`ed it to `0400`, or permanently if the service died in between. It is now created with `G_FILE_CREATE_PRIVATE` (`0600`) before a single byte is written
+- **Report why a configuration was rejected**: `awg_device_new_from_config()` now returns a `GError` (`awg_config_error_quark()`) that names the offending key and value, or explains why the parsed device cannot be used. `nmcli connection import` used to fail with a bare `Failed to parse AmneziaWG config file` and leave the details in the journal; it now says `Invalid value for S1: 999999` or `PrivateKey is missing (check vpn.secrets and secret flags)`
+
+### Improvements
+
+#### Tooling
+- **`tests/` is checked for style too**: the `code-style` job and `scripts/check-style.sh` now cover the test sources, so test code can no longer drift out of the project format unnoticed
+- **Editing the dialog rebuilds its resource**: the GResource rules depended only on `gresource.xml`, so changing `properties/nm-amneziawg-dialog.ui` left the previously compiled UI inside the plugin until a clean build — a confusing no-op for anyone touching the editor. The rules now depend on every bundled file, as reported by `glib-compile-resources --generate-dependencies`
+
 ## [0.9.11] - 2026-09-06
 
 ### Major Changes
