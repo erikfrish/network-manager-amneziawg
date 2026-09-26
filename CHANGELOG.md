@@ -47,6 +47,10 @@
 - **Pre-flight config validation**: `connect_worker` rejects invalid devices via the new `awg_device_get_invalid_reason()` before launching any backend. A keyless device (lost `vpn.secrets`) previously produced a config that `awg setconf`/awg-quick rejected with `Configuration parsing error`; the error now names the missing piece (`PrivateKey is missing…`, `Peer N: …`)
 - **Report awg-quick failures**: the external manager converts a non-zero `awg-quick` exit status into a `GError` via `g_spawn_check_exit_status()` instead of failing silently
 
+#### Imported Configurations
+- **Imported profiles installed no routes**: `awg_device_save_to_nm_connection()` wrote `ipv4.method=manual` for every imported `.conf`. The service installs routes from `AllowedIPs` only when NM manages the routes of that address family, so a profile with an explicit `AllowedIPs` list (split tunneling) was imported successfully and then routed nothing. The method is now `auto`, which is what the service expects and what a saved connection created through the editor already used
+- **Imported profiles hijacked the default route**: `never-default` was never set, and NM makes every VPN connection the default route unless told otherwise, so a profile whose `AllowedIPs` is an explicit list still sent all traffic — including the addresses meant to bypass the tunnel — through it. `never-default` is now derived from `AllowedIPs` (set when no peer routes `0.0.0.0/0` / `::/0`, unset for a full tunnel), matching the intent of the imported configuration
+
 #### Netlink Robustness
 - **Use absolute modprobe path** in `load_kernel_module()`
 - **Copy input string before modifying** in `add_ip_address()` (was writing through a const pointer)
