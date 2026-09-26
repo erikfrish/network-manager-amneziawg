@@ -1143,6 +1143,60 @@ test_awg_device_save_load_extended(void)
  * "Configuration parsing error", and NM_FORCE_AWG_QUICK must select the
  * external (awg-quick) manager. */
 
+/* Импортированный профиль должен маршрутизироваться в NetworkManager:
+ *  - ipv4.method = auto (при manual сервис плагина не ставит маршруты из AllowedIPs);
+ *  - never-default = yes, если профиль не маршрутизирует всё (список адресов),
+ *    и no для полного туннеля (0.0.0.0/0) — иначе NM заворачивает в туннель
+ *    и те адреса, которые должны идти мимо него.
+ */
+static void
+test_nm_connection_never_default(void)
+{
+    GError *error = NULL;
+
+    /* Список адресов: маршрут по умолчанию через VPN не нужен. */
+    {
+        gchar *config_path = get_test_config_path("test-config-split-tunnel.conf");
+        AWGDevice *device = awg_device_new_from_config(config_path, NULL);
+        NMConnection *connection = nm_simple_connection_new();
+        NMSettingIPConfig *s_ip4;
+
+        g_assert_nonnull(device);
+        g_assert_true(awg_device_save_to_nm_connection(device, connection, &error));
+        g_assert_no_error(error);
+
+        s_ip4 = nm_connection_get_setting_ip4_config(connection);
+        g_assert_nonnull(s_ip4);
+        g_assert_cmpstr(nm_setting_ip_config_get_method(s_ip4), ==, NM_SETTING_IP4_CONFIG_METHOD_AUTO);
+        g_assert_true(nm_setting_ip_config_get_never_default(s_ip4));
+
+        g_object_unref(connection);
+        g_object_unref(device);
+        g_free(config_path);
+    }
+
+    /* Полный туннель: VPN и есть маршрут по умолчанию. */
+    {
+        gchar *config_path = get_test_config_path("test-config-ipv4.conf");
+        AWGDevice *device = awg_device_new_from_config(config_path, NULL);
+        NMConnection *connection = nm_simple_connection_new();
+        NMSettingIPConfig *s_ip4;
+
+        g_assert_nonnull(device);
+        g_assert_true(awg_device_save_to_nm_connection(device, connection, &error));
+        g_assert_no_error(error);
+
+        s_ip4 = nm_connection_get_setting_ip4_config(connection);
+        g_assert_nonnull(s_ip4);
+        g_assert_cmpstr(nm_setting_ip_config_get_method(s_ip4), ==, NM_SETTING_IP4_CONFIG_METHOD_AUTO);
+        g_assert_false(nm_setting_ip_config_get_never_default(s_ip4));
+
+        g_object_unref(connection);
+        g_object_unref(device);
+        g_free(config_path);
+    }
+}
+
 static void
 test_nm_connection_secrets_roundtrip(void)
 {
@@ -1403,6 +1457,7 @@ main(int argc, char *argv[])
     g_test_add_func("/awg/config/save-private-permissions", test_awg_device_save_uses_private_permissions);
     g_test_add_func("/awg/config/invalid-value-reported", test_awg_config_invalid_value_is_reported);
     g_test_add_func("/awg/config/incomplete-reported", test_awg_config_incomplete_is_reported);
+    g_test_add_func("/awg/config/nm-connection-never-default", test_nm_connection_never_default);
     g_test_add_func("/awg/config/save-load-multi-peer", test_awg_device_save_and_load_multi_peer);
     g_test_add_func("/awg/config/mtu-not-exported-when-zero", test_awg_device_mtu_not_exported_when_zero);
     g_test_add_func("/awg/config/mtu-exported-when-set", test_awg_device_mtu_exported_when_set);
