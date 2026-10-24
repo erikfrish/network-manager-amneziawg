@@ -1839,6 +1839,33 @@ test_external_awg31_requires_new_tools(void)
     g_object_unref(mgr);
     g_object_unref(device);
 
+    /* ... and a PersistentKeepalive range, which their parser rejects too. */
+    device = awg_device_new();
+    g_assert_nonnull(device);
+    g_assert_true(awg_device_set_private_key(device, "IrQF2MOyaXsmiCEE3FUxejKowR0q65O41dHt3bSTj20="));
+    peer = awg_device_peer_new();
+    g_assert_true(awg_device_peer_set_public_key(peer, "9rLL/fiLgF39EZnzj1xSwIHrY3G+AIwUtnfDpR2H8uU="));
+    g_assert_true(awg_device_peer_set_endpoint(peer, "192.168.1.1:51820"));
+    g_assert_true(awg_device_peer_set_allowed_ips_from_string(peer, "0.0.0.0/0"));
+    g_assert_true(awg_device_peer_set_keep_alive(peer, "25-35"));
+    g_assert_true(awg_device_add_peer(device, peer));
+
+    mgr = awg_connection_manager_external_new("awgtestka", device);
+    g_assert_false(awg_connection_manager_connect(mgr, NULL, &error));
+    g_assert_nonnull(error);
+    g_assert_nonnull(strstr(error->message, "PersistentKeepalive"));
+    g_clear_error(&error);
+    g_object_unref(mgr);
+
+    /* A plain value is fine for them. */
+    g_assert_true(awg_device_peer_set_keep_alive(peer, "25"));
+    g_object_unref(peer);
+    mgr = awg_connection_manager_external_new("awgtestka2", device);
+    g_assert_true(awg_connection_manager_connect(mgr, NULL, &error));
+    g_assert_no_error(error);
+    g_object_unref(mgr);
+    g_object_unref(device);
+
     /* ... and 3.1 tools accept it. */
     g_assert_true(g_file_set_contents(awg, "#!/bin/sh\necho 'amneziawg-tools v3.1.20260812 - https://amnezia.org'\n", -1, NULL));
     g_assert_cmpint(chmod(awg, 0755), ==, 0);

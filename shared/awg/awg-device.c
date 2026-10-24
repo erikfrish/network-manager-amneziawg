@@ -1833,6 +1833,27 @@ awg_device_has_awg31_params(AWGDevice *self)
            priv->random_trailers || priv->disable_cookies;
 }
 
+/* A real range (lo != hi) is the only keepalive form older tools cannot
+ * parse; a plain value works everywhere. */
+gboolean
+awg_device_has_peer_keepalive_range(AWGDevice *self)
+{
+    AWGDevicePrivate *priv;
+    const GList *iter;
+
+    g_return_val_if_fail(AWG_IS_DEVICE(self), FALSE);
+    priv = awg_device_get_instance_private(self);
+
+    for (iter = priv->peers; iter; iter = iter->next) {
+        const gchar *keep_alive = awg_device_peer_get_keep_alive(iter->data);
+        guint32 packed;
+
+        if (keep_alive && awg_range_parse_u32(keep_alive, &packed) && (packed >> 16) != (packed & 0xFFFF))
+            return TRUE;
+    }
+    return FALSE;
+}
+
 guint32
 awg_device_get_mtu(AWGDevice *self)
 {

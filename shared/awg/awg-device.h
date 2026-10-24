@@ -136,6 +136,10 @@ gboolean awg_device_set_disable_cookies(AWGDevice *self, gboolean enabled);
  * encoded, so an old kernel can still carry such a configuration. */
 gboolean awg_device_has_awg31_params(AWGDevice *self);
 
+/* TRUE when a peer PersistentKeepalive is a range (e.g. 25-35). Tools before
+ * 3.0 reject it; kernels before 3.0 only receive the low bound. */
+gboolean awg_device_has_peer_keepalive_range(AWGDevice *self);
+
 guint32 awg_device_get_mtu(AWGDevice *self);
 gboolean awg_device_set_mtu(AWGDevice *self, guint32 mtu);
 gboolean awg_device_set_mtu_from_string(AWGDevice *self, const gchar *str);

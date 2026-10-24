@@ -749,7 +749,7 @@ The properties editor (`properties/nm-amneziawg-editor.c`) validates input field
 - **Endpoint** (required): Must be valid format (host:port)
 - **Allowed IPs** (optional): Comma-separated list of subnets
 - **Preshared Key** (optional): Must be valid base64 if provided
-- **Keep-alive** (optional): 0-65535 seconds
+- **Keep-alive** (optional): empty/`off`/`0` = disabled, otherwise seconds or a range within 0-65535 (`25`, `25-35`), validated with `awg_range_parse_u32()`. A range needs AWG 3.x: the awg-quick backend refuses it with tools < 3.0 (`awg_device_has_peer_keepalive_range()`), netlink on a legacy module warns and sends the low bound
 
 ### Empty Key Handling
 Functions like `awg_key_from_base64()` and `awg_device_peer_set_shared_key()` handle NULL/empty strings gracefully - they clear the existing key rather than failing.
